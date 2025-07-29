@@ -234,68 +234,90 @@ def main():
             # Download options
             st.subheader("📥 Download Data")
             
-            # Use a form for better control
-            with st.form("download_form"):
-                submitted = st.form_submit_button("📥 Download All Matching Data", type="primary")
-                
-                if submitted:
-                    with st.spinner("🔄 Preparing your download..."):
-                        try:
-                            # Get all data without limit
-                            all_data_df = connector.get_all_filtered_data(filters)
+            # Initialize download state
+            if 'download_triggered' not in st.session_state:
+                st.session_state.download_triggered = False
+                st.session_state.download_csv_data = None
+                st.session_state.download_filename = None
+            
+            # Download trigger button
+            if st.button("📥 Prepare Download", type="primary", key="prepare_download"):
+                st.session_state.download_triggered = True
+                st.rerun()
+            
+            # Handle download preparation
+            if st.session_state.download_triggered:
+                with st.spinner("🔄 Preparing your download..."):
+                    try:
+                        # Get all data without limit
+                        all_data_df = connector.get_all_filtered_data(filters)
+                        
+                        if all_data_df is not None and not all_data_df.empty:
+                            # Store CSV data in session state
+                            st.session_state.download_csv_data = all_data_df.to_csv(index=False)
+                            st.session_state.download_filename = f"flight_delays_{date_from}_{date_to}.csv"
                             
+                            st.success(f"✅ Data ready! {len(all_data_df):,} records prepared.")
+                            
+                            # Reset trigger
+                            st.session_state.download_triggered = False
+                            
+                        else:
+                            st.error("❌ No data found for the selected filters.")
+                            st.session_state.download_triggered = False
+                            
+                    except Exception as e:
+                        st.error(f"❌ Error preparing download: {str(e)}")
+                        st.info("💡 Try refreshing the page and applying filters again.")
+                        st.session_state.download_triggered = False
+            
+            # Show download button if data is ready
+            if st.session_state.download_csv_data and st.session_state.download_filename:
+                st.download_button(
+                    label=f"📥 Download CSV File",
+                    data=st.session_state.download_csv_data,
+                    file_name=st.session_state.download_filename,
+                    mime="text/csv",
+                    key="final_download_button",
+                    help="Click to download your data"
+                )
+                st.info("💡 Click the download button above to get your data!")
+                
+                # Clear download data after showing button
+                if st.button("🔄 Clear Download", key="clear_download"):
+                    st.session_state.download_csv_data = None
+                    st.session_state.download_filename = None
+                    st.rerun()
+            
+            # Alternative: Direct download without preparation
+            st.markdown("---")
+            st.markdown("**Alternative: Direct Download**")
+            
+            # Use a container to prevent refresh
+            download_container = st.container()
+            
+            with download_container:
+                if st.button("📥 Direct Download", key="direct_download"):
+                    with st.spinner("🔄 Preparing direct download..."):
+                        try:
+                            all_data_df = connector.get_all_filtered_data(filters)
                             if all_data_df is not None and not all_data_df.empty:
-                                # Create CSV data
                                 csv_data = all_data_df.to_csv(index=False)
                                 
-                                # Create download button outside the form
-                                st.success(f"✅ Data ready! {len(all_data_df):,} records prepared.")
-                                
-                                # Use st.download_button with key to ensure it persists
+                                # Create download button in the same container
                                 st.download_button(
-                                    label=f"📥 Download CSV File ({len(all_data_df):,} records)",
+                                    label=f"📥 Download Now ({len(all_data_df):,} records)",
                                     data=csv_data,
                                     file_name=f"flight_delays_{date_from}_{date_to}.csv",
                                     mime="text/csv",
-                                    key="download_button",
-                                    help="Click to download your data"
+                                    key="direct_download_button",
+                                    help="Download your data immediately"
                                 )
-                                
+                                st.success(f"✅ Ready to download {len(all_data_df):,} records!")
                             else:
-                                st.error("❌ No data found for the selected filters.")
-                                
+                                st.error("No data found for download")
                         except Exception as e:
-                            st.error(f"❌ Error preparing download: {str(e)}")
-                            st.info("💡 Try refreshing the page and applying filters again.")
-            
-            # Alternative simple download method
-            st.markdown("---")
-            st.markdown("**Alternative Download Method:**")
-            
-            # Simple button approach
-            download_clicked = st.button("📥 Quick Download", help="Alternative download method")
-            
-            if download_clicked:
-                with st.spinner("🔄 Preparing download..."):
-                    try:
-                        all_data_df = connector.get_all_filtered_data(filters)
-                        if all_data_df is not None and not all_data_df.empty:
-                            csv_data = all_data_df.to_csv(index=False)
-                            
-                            # Create download button
-                            st.download_button(
-                                label=f"📥 Download CSV ({len(all_data_df):,} records)",
-                                data=csv_data,
-                                file_name=f"flight_delays_{date_from}_{date_to}.csv",
-                                mime="text/csv",
-                                key="quick_download",
-                                help="Download your data"
-                            )
-                            st.success(f"✅ Ready to download {len(all_data_df):,} records!")
-                        else:
-                            st.error("No data found for download")
-                    except Exception as e:
-                        st.error(f"Download error: {str(e)}")
+                            st.error(f"Download error: {str(e)}")
         else:
             st.warning("⚠️ No data found for the selected filters. Try adjusting your criteria.")
     
