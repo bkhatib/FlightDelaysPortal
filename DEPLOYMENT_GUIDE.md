@@ -33,29 +33,24 @@
    - **Main file path**: `app.py`
    - **App URL**: Choose a custom URL (optional)
 
-## Step 3: Set Environment Variables
+## Environment Variables Setup
 
-In Streamlit Cloud, go to your app settings and add these environment variables:
+In Streamlit Cloud, add these environment variables:
 
-### Required Environment Variables:
-
+```toml
+AWS_ACCESS_KEY_ID = "YOUR_AWS_ACCESS_KEY_ID"
+AWS_SECRET_ACCESS_KEY = "YOUR_AWS_SECRET_ACCESS_KEY"
+AWS_SESSION_TOKEN = "YOUR_AWS_SESSION_TOKEN"
+ATHENA_DATABASE = "l1_almosafer"
+ATHENA_TABLE = "fact_flight_delay_scheduler"
+ATHENA_S3_STAGING_DIR = "s3://aws-athena-query-results-032862061730-eu-west-1/"
+ATHENA_REGION = "eu-west-1"
+ATHENA_CATALOG = "awsdatacatalog"
+ATHENA_SCHEMA = "l1_almosafer"
+ATHENA_WORKGROUP = "primary"
 ```
-AWS_ACCESS_KEY_ID=ASIAQPJV3ISRLZ6XP7OH
-AWS_SECRET_ACCESS_KEY=hgttADotkbRDgkJEPbsD8XYsXrG2MlR10lCH77GN
-AWS_SESSION_TOKEN=IQoJb3JpZ2luX2VjEGUaCWV1LXdlc3QtMSJGMEQCIBUfg8C9q7EXqfGNqRifGCRqm3NWhW6sAWXdwPG/9NALAiAcoPGTP67E1Osk6MCl5VBhs/wNnZnE7aOjHWmZ8b1phiqUAwiN//////////8BEAIaDDAzMjg2MjA2MTczMCIMdbGzX3ePsx+BAoCeKugCD19/1C9YjbIPTMd7mypztTBIbw9bdIJmdTHYlzqLIbCCflqV+S/ari3KtfUgQ+9aKmPT436J9Q1vbaSE/h74VQuP9yzjZDPsyTqZTEjoEhMh00ChrCcfy+r7mojoznl/Dyf4pYqw2a6MqsHFDV6+vfp37Q0lSvo3gfANXu4xlpMyuOLF6MsvT1ze2Z0YIYGBeWdDnXp86b8QxbyPNSCPUfExL1O0CPvwXLsEoQ30VxzKqXFIVEmKru/zj6oRrqUz/dHXhiQlaM+LHQjazZ/J0lss2xQNJTdH+HxH2nmow/ABpS7MNNmXoQCihI2s+owQIRx34ctS1171F6i4MNxP0ooetmnkgg3Ctxv+i7yMIzQjVnfEJHygTPEt1TD5gVCwADxVASGIFewTvgysjqD+cxJUy/nhAumr3KqGqM1boCGGJ1ac8CbXd2mWz0jF3qf87zsQPsbn6+GkVUFY86k6Tp/3o+yUDlxgMPfSncQGOqcBoGPRgBY+yKdTxU93mSM7+fTcRi7RpTrLV0aTQx9tzTVgCDCskN6BWTZ0i4pYTuFoWiEAiMJiu6m41btZzamNlSz8qgZ1BdFKgLyjQlQzIO0AsQCWjahkiArd2KQGzMPX4d7aTo2dIAz6Z5z/qwedFssJF1IjC1c0ymtFTdKsA24XiX5rIi3XsbXnAlt05Sx+C/N842xXUpfeN0jvnKQbiPUBLSceEgs=
-```
 
-### Optional Environment Variables (if you want to override defaults):
-
-```
-ATHENA_DATABASE=l1_almosafer
-ATHENA_TABLE=fact_flight_delay_scheduler
-ATHENA_S3_STAGING_DIR=s3://aws-athena-query-results-032862061730-eu-west-1/
-ATHENA_REGION=eu-west-1
-ATHENA_CATALOG=awsdatacatalog
-ATHENA_SCHEMA=l1_almosafer
-ATHENA_WORKGROUP=primary
-```
+**Note**: Replace the AWS credentials with your actual values. Never commit real credentials to the repository.
 
 ## Step 4: Deploy
 

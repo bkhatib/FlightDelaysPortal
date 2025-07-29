@@ -39,19 +39,20 @@ textColor = "#262730"
 
 def create_env_template():
     """Create environment variables template"""
-    env_template = """# AWS Configuration
-AWS_ACCESS_KEY_ID=your_access_key_here
-AWS_SECRET_ACCESS_KEY=your_secret_key_here
-AWS_SESSION_TOKEN=your_session_token_here
+    # Create .env.template
+    env_template = """# AWS Credentials
+AWS_ACCESS_KEY_ID=YOUR_AWS_ACCESS_KEY_ID
+AWS_SECRET_ACCESS_KEY=YOUR_AWS_SECRET_ACCESS_KEY
+AWS_SESSION_TOKEN=YOUR_AWS_SESSION_TOKEN
 
 # Athena Configuration
-ATHENA_DATABASE=your_database_name
-ATHENA_TABLE=your_table_name
-ATHENA_S3_STAGING_DIR=s3://your-bucket/athena-results/
-ATHENA_REGION=us-east-1
-
-# Optional: Override config.py settings
-# Set these in Streamlit Cloud environment variables
+ATHENA_DATABASE=l1_almosafer
+ATHENA_TABLE=fact_flight_delay_scheduler
+ATHENA_S3_STAGING_DIR=s3://aws-athena-query-results-032862061730-eu-west-1/
+ATHENA_REGION=eu-west-1
+ATHENA_CATALOG=awsdatacatalog
+ATHENA_SCHEMA=l1_almosafer
+ATHENA_WORKGROUP=primary
 """
     
     with open(".env.template", "w") as f:
