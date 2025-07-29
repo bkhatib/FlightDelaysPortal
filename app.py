@@ -115,21 +115,12 @@ def main():
                 unique_destinations = int(summary.get('unique_destinations', 0))
                 st.metric("Unique Destinations", f"{unique_destinations:,}")
             
-            st.markdown(f"""
-            <div class="partition-info">
-                <h4>🔍 Partition Information</h4>
-                <p><strong>Partitioned Column:</strong> <code>departure_date</code></p>
-                <p><strong>Date Range:</strong> {summary.get('earliest_date', 'N/A')} to {summary.get('latest_date', 'N/A')}</p>
-                <p><strong>Performance Tip:</strong> Use date filters to optimize query performance and reduce costs!</p>
-            </div>
-            """, unsafe_allow_html=True)
+            st.markdown("")
     
     # Sidebar filters
     st.sidebar.header("🔍 Filters")
     
-    # Date range filter (partition-aware)
-    st.sidebar.subheader("📅 Date Range (Partitioned)")
-    st.sidebar.markdown("*Use date filters for optimal performance*")
+
     
     date_from = st.sidebar.date_input(
         "From Date",
@@ -193,147 +184,67 @@ def main():
         with st.spinner("🔄 Loading data..."):
             connector = AthenaConnector()
             df = connector.execute_query(connector.build_filtered_query(filters))
-            # Get aggregated metrics from total dataset
-            metrics_df = connector.get_filtered_metrics(filters)
-        
-        if df is not None and not df.empty:
-            displayed_count = len(df)
             
-            # Get metrics from total dataset
-            if metrics_df is not None and not metrics_df.empty:
-                total_count = int(metrics_df.iloc[0]['total_count'])
-                avg_delay = float(metrics_df.iloc[0]['avg_delay']) if metrics_df.iloc[0]['avg_delay'] is not None else 0
-                total_orders = float(metrics_df.iloc[0]['total_orders']) if metrics_df.iloc[0]['total_orders'] is not None else 0
-                total_revenue = float(metrics_df.iloc[0]['total_revenue']) if metrics_df.iloc[0]['total_revenue'] is not None else 0
-            else:
-                total_count = displayed_count
-                avg_delay = 0
-                total_orders = 0
-                total_revenue = 0
-            
-            if total_count > displayed_count:
-                st.success(f"✅ Retrieved {displayed_count:,} of {total_count:,} total records (showing first 1,000)")
-            else:
-                st.success(f"✅ Retrieved {displayed_count:,} records")
-            
-            # Display metrics
-            col1, col2, col3, col4 = st.columns(4)
-            with col1:
-                st.metric("Total Records", f"{total_count:,}", f"Showing {displayed_count:,}")
-            with col2:
-                st.metric("Avg Delay (min)", f"{avg_delay:.1f}" if avg_delay > 0 else "N/A")
-            with col3:
-                st.metric("Total Orders", f"{total_orders:,.0f}" if total_orders > 0 else "N/A")
-            with col4:
-                st.metric("Total Revenue", f"SAR {total_revenue:,.2f}" if total_revenue > 0 else "N/A")
-            
-            # Display data
-            st.subheader("📋 Flight Delays Data")
-            st.dataframe(df, use_container_width=True)
-            
-            # Download options
-            st.subheader("📥 Download Data")
-            
-            # Initialize download state
-            if 'download_triggered' not in st.session_state:
-                st.session_state.download_triggered = False
-                st.session_state.download_csv_data = None
-                st.session_state.download_filename = None
-            
-            # Download trigger button
-            if st.button("📥 Prepare Download", type="primary", key="prepare_download"):
-                st.session_state.download_triggered = True
-                st.rerun()
-            
-            # Handle download preparation
-            if st.session_state.download_triggered:
-                with st.spinner("🔄 Preparing your download..."):
-                    try:
-                        # Get all data without limit
-                        all_data_df = connector.get_all_filtered_data(filters)
-                        
-                        if all_data_df is not None and not all_data_df.empty:
-                            # Store CSV data in session state
-                            st.session_state.download_csv_data = all_data_df.to_csv(index=False)
-                            st.session_state.download_filename = f"flight_delays_{date_from}_{date_to}.csv"
-                            
-                            st.success(f"✅ Data ready! {len(all_data_df):,} records prepared.")
-                            
-                            # Reset trigger
-                            st.session_state.download_triggered = False
-                            
-                        else:
-                            st.error("❌ No data found for the selected filters.")
-                            st.session_state.download_triggered = False
-                            
-                    except Exception as e:
-                        st.error(f"❌ Error preparing download: {str(e)}")
-                        st.info("💡 Try refreshing the page and applying filters again.")
-                        st.session_state.download_triggered = False
-            
-            # Show download button if data is ready
-            if st.session_state.download_csv_data and st.session_state.download_filename:
-                st.download_button(
-                    label=f"📥 Download CSV File",
-                    data=st.session_state.download_csv_data,
-                    file_name=st.session_state.download_filename,
-                    mime="text/csv",
-                    key="final_download_button",
-                    help="Click to download your data"
-                )
-                st.info("💡 Click the download button above to get your data!")
+            if df is not None and not df.empty:
+                displayed_count = len(df)
                 
-                # Clear download data after showing button
-                if st.button("🔄 Clear Download", key="clear_download"):
-                    st.session_state.download_csv_data = None
-                    st.session_state.download_filename = None
-                    st.rerun()
-            
-            # Alternative: Direct download without preparation
-            st.markdown("---")
-            st.markdown("**Alternative: Direct Download**")
-            
-            # Use a container to prevent refresh
-            download_container = st.container()
-            
-            with download_container:
-                if st.button("📥 Direct Download", key="direct_download"):
-                    with st.spinner("🔄 Preparing direct download..."):
-                        try:
-                            all_data_df = connector.get_all_filtered_data(filters)
-                            if all_data_df is not None and not all_data_df.empty:
-                                csv_data = all_data_df.to_csv(index=False)
-                                
-                                # Create download button in the same container
-                                st.download_button(
-                                    label=f"📥 Download Now ({len(all_data_df):,} records)",
-                                    data=csv_data,
-                                    file_name=f"flight_delays_{date_from}_{date_to}.csv",
-                                    mime="text/csv",
-                                    key="direct_download_button",
-                                    help="Download your data immediately"
-                                )
-                                st.success(f"✅ Ready to download {len(all_data_df):,} records!")
-                            else:
-                                st.error("No data found for download")
-                        except Exception as e:
-                            st.error(f"Download error: {str(e)}")
-        else:
-            st.warning("⚠️ No data found for the selected filters. Try adjusting your criteria.")
+                # Display metrics
+                metrics_df = connector.get_filtered_metrics(filters)
+                
+                # Get metrics from total dataset
+                if metrics_df is not None and not metrics_df.empty:
+                    total_count = int(metrics_df.iloc[0]['total_count'])
+                    avg_delay = float(metrics_df.iloc[0]['avg_delay']) if metrics_df.iloc[0]['avg_delay'] is not None else 0
+                    total_orders = float(metrics_df.iloc[0]['total_orders']) if metrics_df.iloc[0]['total_orders'] is not None else 0
+                    total_revenue = float(metrics_df.iloc[0]['total_revenue']) if metrics_df.iloc[0]['total_revenue'] is not None else 0
+                else:
+                    total_count = displayed_count
+                    avg_delay = 0
+                    total_orders = 0
+                    total_revenue = 0
+                
+                # Show pagination information
+                if total_count > displayed_count:
+                    st.success(f"✅ Showing {displayed_count:,} of {total_count:,} total records")
+                else:
+                    st.success(f"✅ Showing all {displayed_count:,} records")
+                
+                # Display metrics
+                col1, col2, col3, col4 = st.columns(4)
+                with col1:
+                    st.metric("Total Records", f"{total_count:,}", f"Showing {displayed_count:,}")
+                with col2:
+                    st.metric("Avg Delay (min)", f"{avg_delay:.1f}" if avg_delay > 0 else "N/A")
+                with col3:
+                    st.metric("Total Orders", f"{total_orders:,.0f}" if total_orders > 0 else "N/A")
+                with col4:
+                    st.metric("Total Revenue", f"SAR {total_revenue:,.2f}" if total_revenue > 0 else "N/A")
+                
+                # Display data
+                st.subheader("📋 Flight Delays Data")
+                st.dataframe(df, use_container_width=True)
+                
+                # Simple download
+                st.subheader("📥 Download Data")
+                
+                # Download displayed data (1000 records)
+                csv_data = df.to_csv(index=False)
+                
+                st.download_button(
+                    label=f"📥 Download Data ({len(df):,} records)",
+                    data=csv_data,
+                    file_name=f"flight_delays_{date_from}_{date_to}.csv",
+                    mime="text/csv",
+                    help="Download the complete dataset"
+                )
+                
+
+            else:
+                st.warning("⚠️ No data found for the selected filters. Try adjusting your criteria.")
     
     # Performance tips
-    with st.sidebar.expander("💡 Performance Tips"):
-        st.markdown("""
-        **🔍 Partition Optimization:**
-        - Use date filters for faster queries
-        - `departure_date` is partitioned for optimal performance
-        - Recent data queries are faster
-        
-        **💰 Cost Optimization:**
-        - Limit date ranges to reduce scan costs
-        - Use specific filters to minimize data scanned
-        - Results are cached for 10 minutes
-        """)
+    with st.sidebar.expander(""):
+        st.markdown("")
 
 if __name__ == "__main__":
     main() 

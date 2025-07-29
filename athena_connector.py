@@ -32,7 +32,7 @@ class AthenaConnector:
         self.output_location = ATHENA_S3_STAGING_DIR
     
     def execute_athena_query(self, query):
-        """Execute a query using boto3 Athena client"""
+        """Execute a query using boto3 Athena client with pagination"""
         try:
             # Start query execution
             response = self.athena_client.start_query_execution(
@@ -59,24 +59,39 @@ class AthenaConnector:
                 time.sleep(2)
             
             if status == 'SUCCEEDED':
-                # Get results
-                results = self.athena_client.get_query_results(QueryExecutionId=query_execution_id)
+                # Get all results using pagination
+                all_rows = []
+                next_token = None
                 
-                # Convert to pandas DataFrame
-                if results['ResultSet']['Rows']:
-                    # Extract column names
-                    columns = [col['Label'] for col in results['ResultSet']['ResultSetMetadata']['ColumnInfo']]
+                while True:
+                    if next_token:
+                        results = self.athena_client.get_query_results(
+                            QueryExecutionId=query_execution_id,
+                            NextToken=next_token
+                        )
+                    else:
+                        results = self.athena_client.get_query_results(QueryExecutionId=query_execution_id)
                     
-                    # Extract data rows (skip header)
-                    data_rows = []
-                    for row in results['ResultSet']['Rows'][1:]:  # Skip header row
+                    # Extract column names from first call
+                    if not all_rows:
+                        columns = [col['Label'] for col in results['ResultSet']['ResultSetMetadata']['ColumnInfo']]
+                    
+                    # Extract data rows (skip header on first call)
+                    start_idx = 1 if not all_rows else 0
+                    for row in results['ResultSet']['Rows'][start_idx:]:
                         data_row = []
                         for data in row['Data']:
                             data_row.append(data.get('VarCharValue', ''))
-                        data_rows.append(data_row)
+                        all_rows.append(data_row)
                     
-                    # Create DataFrame
-                    df = pd.DataFrame(data_rows, columns=columns)
+                    # Check if there are more results
+                    next_token = results.get('NextToken')
+                    if not next_token:
+                        break
+                
+                # Create DataFrame
+                if all_rows:
+                    df = pd.DataFrame(all_rows, columns=columns)
                     return df
                 else:
                     return pd.DataFrame()
@@ -100,11 +115,10 @@ class AthenaConnector:
                scheduled_departure_date_time_utc, actual_departure_date_utc, journey_type, 
                order_c, selling_price_sum, gbv_sum, departure_date
         FROM {ATHENA_DATABASE}.{ATHENA_TABLE}
-        WHERE 1=1
+        WHERE departure_date IS NOT NULL
         """
         
-        # Add partition filters first (for optimal performance)
-        # Treat departure_date as string for comparison
+        # Always add partition filters for optimal performance
         if filters.get('date_from'):
             base_query += f" AND departure_date >= '{filters['date_from']}'"
         if filters.get('date_to'):
@@ -122,8 +136,8 @@ class AthenaConnector:
         if filters.get('dep_delayed'):
             base_query += self._build_delay_filter(filters['dep_delayed'])
         
-        # Add ordering and limit for performance
-        base_query += " ORDER BY order_c LIMIT 1000"
+        # Add ordering with larger limit for display (50,000 records)
+        base_query += " ORDER BY order_c LIMIT 50000"
         
         return base_query
     
@@ -183,10 +197,10 @@ class AthenaConnector:
         base_query = f"""
         SELECT COUNT(*) as total_count
         FROM {ATHENA_DATABASE}.{ATHENA_TABLE}
-        WHERE 1=1
+        WHERE departure_date IS NOT NULL
         """
         
-        # Add partition filters first (for optimal performance)
+        # Always add partition filters for optimal performance
         if filters.get('date_from'):
             base_query += f" AND departure_date >= '{filters['date_from']}'"
         if filters.get('date_to'):
@@ -215,10 +229,10 @@ class AthenaConnector:
             SUM(CAST(order_c AS DECIMAL(10,2))) as total_orders,
             SUM(CAST(selling_price_sum AS DECIMAL(10,2))) as total_revenue
         FROM {ATHENA_DATABASE}.{ATHENA_TABLE}
-        WHERE 1=1
+        WHERE departure_date IS NOT NULL
         """
         
-        # Add partition filters first (for optimal performance)
+        # Always add partition filters for optimal performance
         if filters.get('date_from'):
             base_query += f" AND departure_date >= '{filters['date_from']}'"
         if filters.get('date_to'):
@@ -239,34 +253,83 @@ class AthenaConnector:
         return self.execute_query(base_query) 
 
     def get_all_filtered_data(self, filters):
-        """Get all records matching filters (without LIMIT) for export"""
-        base_query = f"""
-        SELECT flight_code, origin, destination, dep_delayed, cal_dep_delayed_minutes, 
-               scheduled_departure_date_time_utc, actual_departure_date_utc, journey_type, 
-               order_c, selling_price_sum, gbv_sum, departure_date
+        """Get all records matching filters (without LIMIT) for export using pagination"""
+        # First, get the total count
+        count_query = f"""
+        SELECT COUNT(*) as total_count
         FROM {ATHENA_DATABASE}.{ATHENA_TABLE}
-        WHERE 1=1
+        WHERE departure_date IS NOT NULL
         """
         
-        # Add partition filters first (for optimal performance)
+        # Always add partition filters for optimal performance
         if filters.get('date_from'):
-            base_query += f" AND departure_date >= '{filters['date_from']}'"
+            count_query += f" AND departure_date >= '{filters['date_from']}'"
         if filters.get('date_to'):
-            base_query += f" AND departure_date <= '{filters['date_to']}'"
+            count_query += f" AND departure_date <= '{filters['date_to']}'"
         
         # Add other filters
         if filters.get('journey_type'):
-            base_query += f" AND journey_type = '{filters['journey_type']}'"
+            count_query += f" AND journey_type = '{filters['journey_type']}'"
         if filters.get('origin'):
-            base_query += f" AND origin = '{filters['origin']}'"
+            count_query += f" AND origin = '{filters['origin']}'"
         if filters.get('destination'):
-            base_query += f" AND destination = '{filters['destination']}'"
+            count_query += f" AND destination = '{filters['destination']}'"
         if filters.get('flight_code'):
-            base_query += f" AND flight_code = '{filters['flight_code']}'"
+            count_query += f" AND flight_code = '{filters['flight_code']}'"
         if filters.get('dep_delayed'):
-            base_query += self._build_delay_filter(filters['dep_delayed'])
+            count_query += self._build_delay_filter(filters['dep_delayed'])
         
-        # Add ordering but no limit
-        base_query += " ORDER BY order_c"
+        count_df = self.execute_query(count_query)
+        total_count = int(count_df.iloc[0]['total_count']) if count_df is not None and not count_df.empty else 0
         
-        return self.execute_query(base_query) 
+        if total_count == 0:
+            return pd.DataFrame()
+        
+        # Use pagination to get all data
+        all_data = []
+        batch_size = 10000  # Process in batches of 10,000
+        offset = 0
+        
+        while offset < total_count:
+            # Build query with pagination
+            base_query = f"""
+            SELECT flight_code, origin, destination, dep_delayed, cal_dep_delayed_minutes, 
+                   scheduled_departure_date_time_utc, actual_departure_date_utc, journey_type, 
+                   order_c, selling_price_sum, gbv_sum, departure_date
+            FROM {ATHENA_DATABASE}.{ATHENA_TABLE}
+            WHERE departure_date IS NOT NULL
+            """
+            
+            # Always add partition filters for optimal performance
+            if filters.get('date_from'):
+                base_query += f" AND departure_date >= '{filters['date_from']}'"
+            if filters.get('date_to'):
+                base_query += f" AND departure_date <= '{filters['date_to']}'"
+            
+            # Add other filters
+            if filters.get('journey_type'):
+                base_query += f" AND journey_type = '{filters['journey_type']}'"
+            if filters.get('origin'):
+                base_query += f" AND origin = '{filters['origin']}'"
+            if filters.get('destination'):
+                base_query += f" AND destination = '{filters['destination']}'"
+            if filters.get('flight_code'):
+                base_query += f" AND flight_code = '{filters['flight_code']}'"
+            if filters.get('dep_delayed'):
+                base_query += self._build_delay_filter(filters['dep_delayed'])
+            
+            # Add ordering and pagination
+            base_query += f" ORDER BY order_c LIMIT {batch_size} OFFSET {offset}"
+            
+            batch_df = self.execute_query(base_query)
+            if batch_df is not None and not batch_df.empty:
+                all_data.append(batch_df)
+                offset += len(batch_df)
+            else:
+                break
+        
+        # Combine all batches
+        if all_data:
+            return pd.concat(all_data, ignore_index=True)
+        else:
+            return pd.DataFrame() 
