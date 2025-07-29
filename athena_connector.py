@@ -51,10 +51,48 @@ class AthenaConnector:
             # Try Streamlit secrets first (for production)
             if hasattr(st, 'secrets') and st.secrets:
                 st.write("🔍 Trying Streamlit secrets...")
+                
+                # Debug: Show all available secrets
+                st.write("📋 Available secrets keys:", list(st.secrets.keys()) if st.secrets else "No secrets")
+                
+                # Try different ways to access secrets
+                access_key = None
+                secret_key = None
+                session_token = None
+                
+                # Method 1: Try lowercase keys (as configured in Streamlit)
+                try:
+                    access_key = st.secrets['aws_access_key_id']
+                    secret_key = st.secrets['aws_secret_access_key']
+                    session_token = st.secrets['aws_session_token']
+                    st.write("✅ Method 1: Lowercase keys successful")
+                except:
+                    st.write("❌ Method 1: Lowercase keys failed")
+                
+                # Method 2: Try uppercase keys
+                if not access_key:
+                    try:
+                        access_key = st.secrets.get('AWS_ACCESS_KEY_ID')
+                        secret_key = st.secrets.get('AWS_SECRET_ACCESS_KEY')
+                        session_token = st.secrets.get('AWS_SESSION_TOKEN')
+                        st.write("✅ Method 2: Uppercase keys successful")
+                    except:
+                        st.write("❌ Method 2: Uppercase keys failed")
+                
+                # Method 3: Try without AWS_ prefix
+                if not access_key:
+                    try:
+                        access_key = st.secrets.get('ACCESS_KEY_ID')
+                        secret_key = st.secrets.get('SECRET_ACCESS_KEY')
+                        session_token = st.secrets.get('SESSION_TOKEN')
+                        st.write("✅ Method 3: Without AWS_ prefix successful")
+                    except:
+                        st.write("❌ Method 3: Without AWS_ prefix failed")
+                
                 credentials = {
-                    'AWS_ACCESS_KEY_ID': st.secrets.get('AWS_ACCESS_KEY_ID'),
-                    'AWS_SECRET_ACCESS_KEY': st.secrets.get('AWS_SECRET_ACCESS_KEY'),
-                    'AWS_SESSION_TOKEN': st.secrets.get('AWS_SESSION_TOKEN'),
+                    'AWS_ACCESS_KEY_ID': access_key,
+                    'AWS_SECRET_ACCESS_KEY': secret_key,
+                    'AWS_SESSION_TOKEN': session_token,
                     'AWS_DEFAULT_REGION': st.secrets.get('AWS_DEFAULT_REGION', 'eu-west-1')
                 }
                 
@@ -64,6 +102,9 @@ class AthenaConnector:
                     return credentials
                 else:
                     st.warning("⚠️ Streamlit secrets found but credentials are empty")
+                    st.write("🔍 Debug - Access Key:", "Present" if access_key else "Missing")
+                    st.write("🔍 Debug - Secret Key:", "Present" if secret_key else "Missing")
+                    st.write("🔍 Debug - Session Token:", "Present" if session_token else "Missing")
         except Exception as e:
             st.error(f"❌ Error loading Streamlit secrets: {str(e)}")
         
