@@ -1,8 +1,6 @@
 import pandas as pd
 import boto3
 import os
-from pyathena import connect
-from pyathena.pandas.util import as_pandas
 import streamlit as st
 from config import (
     AWS_ACCESS_KEY_ID, 
