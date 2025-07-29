@@ -1,13 +1,38 @@
 import os
+import streamlit as st
 from dotenv import load_dotenv
 
-# Load environment variables
+# Load environment variables (for local development)
 load_dotenv()
 
-# AWS Credentials (from environment variables only)
-AWS_ACCESS_KEY_ID = os.getenv('AWS_ACCESS_KEY_ID')
-AWS_SECRET_ACCESS_KEY = os.getenv('AWS_SECRET_ACCESS_KEY')
-AWS_SESSION_TOKEN = os.getenv('AWS_SESSION_TOKEN')
+# AWS Credentials (from Streamlit secrets or environment variables)
+def get_aws_credentials():
+    """Get AWS credentials from Streamlit secrets or environment variables"""
+    try:
+        # Try Streamlit secrets first (for production)
+        if hasattr(st, 'secrets') and st.secrets:
+            return {
+                'AWS_ACCESS_KEY_ID': st.secrets.get('AWS_ACCESS_KEY_ID'),
+                'AWS_SECRET_ACCESS_KEY': st.secrets.get('AWS_SECRET_ACCESS_KEY'),
+                'AWS_SESSION_TOKEN': st.secrets.get('AWS_SESSION_TOKEN'),
+                'AWS_DEFAULT_REGION': st.secrets.get('AWS_DEFAULT_REGION', 'eu-west-1')
+            }
+    except:
+        pass
+    
+    # Fallback to environment variables (for local development)
+    return {
+        'AWS_ACCESS_KEY_ID': os.getenv('AWS_ACCESS_KEY_ID'),
+        'AWS_SECRET_ACCESS_KEY': os.getenv('AWS_SECRET_ACCESS_KEY'),
+        'AWS_SESSION_TOKEN': os.getenv('AWS_SESSION_TOKEN'),
+        'AWS_DEFAULT_REGION': os.getenv('AWS_DEFAULT_REGION', 'eu-west-1')
+    }
+
+# Get credentials
+credentials = get_aws_credentials()
+AWS_ACCESS_KEY_ID = credentials['AWS_ACCESS_KEY_ID']
+AWS_SECRET_ACCESS_KEY = credentials['AWS_SECRET_ACCESS_KEY']
+AWS_SESSION_TOKEN = credentials['AWS_SESSION_TOKEN']
 
 # Athena Configuration
 ATHENA_DATABASE = os.getenv('ATHENA_DATABASE', "l1_almosafer")  # Database name
