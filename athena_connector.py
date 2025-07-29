@@ -17,16 +17,32 @@ class AthenaConnector:
         # Load credentials dynamically
         self.credentials = self._get_aws_credentials()
         
+        # Debug: Show what credentials we have
+        st.write(f"🔑 Access Key ID: {self.credentials['AWS_ACCESS_KEY_ID'][:10]}..." if self.credentials['AWS_ACCESS_KEY_ID'] else "❌ No Access Key ID")
+        st.write(f"🔑 Secret Key: {'***' if self.credentials['AWS_SECRET_ACCESS_KEY'] else '❌ No Secret Key'}")
+        st.write(f"🔑 Session Token: {'***' if self.credentials['AWS_SESSION_TOKEN'] else '❌ No Session Token'}")
+        
         # Create AWS session with Athena credentials
-        self.athena_session = boto3.Session(
-            aws_access_key_id=self.credentials['AWS_ACCESS_KEY_ID'],
-            aws_secret_access_key=self.credentials['AWS_SECRET_ACCESS_KEY'],
-            aws_session_token=self.credentials['AWS_SESSION_TOKEN'],
-            region_name=ATHENA_REGION
-        )
+        try:
+            self.athena_session = boto3.Session(
+                aws_access_key_id=self.credentials['AWS_ACCESS_KEY_ID'],
+                aws_secret_access_key=self.credentials['AWS_SECRET_ACCESS_KEY'],
+                aws_session_token=self.credentials['AWS_SESSION_TOKEN'],
+                region_name=ATHENA_REGION
+            )
+            st.success("✅ AWS Session created successfully")
+        except Exception as e:
+            st.error(f"❌ Failed to create AWS session: {str(e)}")
+            raise
         
         # Initialize Athena client
-        self.athena_client = self.athena_session.client('athena')
+        try:
+            self.athena_client = self.athena_session.client('athena')
+            st.success("✅ Athena client initialized successfully")
+        except Exception as e:
+            st.error(f"❌ Failed to initialize Athena client: {str(e)}")
+            raise
+            
         self.output_location = ATHENA_S3_STAGING_DIR
     
     def _get_aws_credentials(self):
@@ -34,22 +50,38 @@ class AthenaConnector:
         try:
             # Try Streamlit secrets first (for production)
             if hasattr(st, 'secrets') and st.secrets:
-                return {
+                st.write("🔍 Trying Streamlit secrets...")
+                credentials = {
                     'AWS_ACCESS_KEY_ID': st.secrets.get('AWS_ACCESS_KEY_ID'),
                     'AWS_SECRET_ACCESS_KEY': st.secrets.get('AWS_SECRET_ACCESS_KEY'),
                     'AWS_SESSION_TOKEN': st.secrets.get('AWS_SESSION_TOKEN'),
                     'AWS_DEFAULT_REGION': st.secrets.get('AWS_DEFAULT_REGION', 'eu-west-1')
                 }
-        except:
-            pass
+                
+                # Check if credentials are loaded
+                if credentials['AWS_ACCESS_KEY_ID'] and credentials['AWS_SECRET_ACCESS_KEY']:
+                    st.success("✅ Credentials loaded from Streamlit secrets")
+                    return credentials
+                else:
+                    st.warning("⚠️ Streamlit secrets found but credentials are empty")
+        except Exception as e:
+            st.error(f"❌ Error loading Streamlit secrets: {str(e)}")
         
         # Fallback to environment variables (for local development)
-        return {
+        st.write("🔍 Trying environment variables...")
+        credentials = {
             'AWS_ACCESS_KEY_ID': os.getenv('AWS_ACCESS_KEY_ID'),
             'AWS_SECRET_ACCESS_KEY': os.getenv('AWS_SECRET_ACCESS_KEY'),
             'AWS_SESSION_TOKEN': os.getenv('AWS_SESSION_TOKEN'),
             'AWS_DEFAULT_REGION': os.getenv('AWS_DEFAULT_REGION', 'eu-west-1')
         }
+        
+        if credentials['AWS_ACCESS_KEY_ID'] and credentials['AWS_SECRET_ACCESS_KEY']:
+            st.success("✅ Credentials loaded from environment variables")
+        else:
+            st.error("❌ No AWS credentials found in environment variables")
+            
+        return credentials
     
     def execute_athena_query(self, query):
         """Execute a query using boto3 Athena client with pagination"""
