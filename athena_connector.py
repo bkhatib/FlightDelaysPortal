@@ -3,9 +3,6 @@ import boto3
 import os
 import streamlit as st
 from config import (
-    AWS_ACCESS_KEY_ID, 
-    AWS_SECRET_ACCESS_KEY, 
-    AWS_SESSION_TOKEN,
     ATHENA_DATABASE,
     ATHENA_TABLE,
     ATHENA_S3_STAGING_DIR,
@@ -17,17 +14,42 @@ from config import (
 
 class AthenaConnector:
     def __init__(self):
+        # Load credentials dynamically
+        self.credentials = self._get_aws_credentials()
+        
         # Create AWS session with Athena credentials
         self.athena_session = boto3.Session(
-            aws_access_key_id=AWS_ACCESS_KEY_ID,
-            aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
-            aws_session_token=AWS_SESSION_TOKEN,
+            aws_access_key_id=self.credentials['AWS_ACCESS_KEY_ID'],
+            aws_secret_access_key=self.credentials['AWS_SECRET_ACCESS_KEY'],
+            aws_session_token=self.credentials['AWS_SESSION_TOKEN'],
             region_name=ATHENA_REGION
         )
         
         # Initialize Athena client
         self.athena_client = self.athena_session.client('athena')
         self.output_location = ATHENA_S3_STAGING_DIR
+    
+    def _get_aws_credentials(self):
+        """Get AWS credentials from Streamlit secrets or environment variables"""
+        try:
+            # Try Streamlit secrets first (for production)
+            if hasattr(st, 'secrets') and st.secrets:
+                return {
+                    'AWS_ACCESS_KEY_ID': st.secrets.get('AWS_ACCESS_KEY_ID'),
+                    'AWS_SECRET_ACCESS_KEY': st.secrets.get('AWS_SECRET_ACCESS_KEY'),
+                    'AWS_SESSION_TOKEN': st.secrets.get('AWS_SESSION_TOKEN'),
+                    'AWS_DEFAULT_REGION': st.secrets.get('AWS_DEFAULT_REGION', 'eu-west-1')
+                }
+        except:
+            pass
+        
+        # Fallback to environment variables (for local development)
+        return {
+            'AWS_ACCESS_KEY_ID': os.getenv('AWS_ACCESS_KEY_ID'),
+            'AWS_SECRET_ACCESS_KEY': os.getenv('AWS_SECRET_ACCESS_KEY'),
+            'AWS_SESSION_TOKEN': os.getenv('AWS_SESSION_TOKEN'),
+            'AWS_DEFAULT_REGION': os.getenv('AWS_DEFAULT_REGION', 'eu-west-1')
+        }
     
     def execute_athena_query(self, query):
         """Execute a query using boto3 Athena client with pagination"""
