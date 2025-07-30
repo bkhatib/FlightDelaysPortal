@@ -154,8 +154,7 @@ def main():
         'Less than 15 minutes', 
         '15-30 minutes', 
         '30-60 minutes', 
-        '60-90 minutes', 
-        'More than 90 minutes'
+        'Greater than 60 minutes'
     ]
     dep_delayed = st.sidebar.selectbox("Departure Delay", delay_options)
     

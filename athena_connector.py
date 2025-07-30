@@ -206,10 +206,8 @@ class AthenaConnector:
             return " AND CAST(dep_delayed AS DECIMAL(10,2)) >= 15 AND CAST(dep_delayed AS DECIMAL(10,2)) < 30"
         elif delay_range == '30-60 minutes':
             return " AND CAST(dep_delayed AS DECIMAL(10,2)) >= 30 AND CAST(dep_delayed AS DECIMAL(10,2)) < 60"
-        elif delay_range == '60-90 minutes':
-            return " AND CAST(dep_delayed AS DECIMAL(10,2)) >= 60 AND CAST(dep_delayed AS DECIMAL(10,2)) < 90"
-        elif delay_range == 'More than 90 minutes':
-            return " AND CAST(dep_delayed AS DECIMAL(10,2)) > 90"
+        elif delay_range == 'Greater than 60 minutes':
+            return " AND CAST(dep_delayed AS DECIMAL(10,2)) > 60"
         else:
             return ""
     
